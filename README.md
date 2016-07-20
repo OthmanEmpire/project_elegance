@@ -10,17 +10,13 @@ Elegance is broken down into several parts which in chronological order are:
 3. 
 
 ## Requirements
-* Python (3.5.2)
-* opencv3 (3.1.0)
-* matplotlib (1.5.1)
-
-## Environment Developed 
-* CentOS 6
+* Python (2.6.6)
+* opencv (2.4.13)
+* matplotlib (1.3.1)
 
 ## Key Features
 
-## Authors (Team Aardvark)
-
+## Authors
 |                       Name                        |         Email        |   Phone No.  |
 | ------------------------------------------------- |:--------------------:| ------------:|
 | [Othman Ali Khan](https://gitlab.com/u/sc14omsa)  | sc14omsa@leeds.ac.uk |  07472440699 |

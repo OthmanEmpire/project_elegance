@@ -72,3 +72,7 @@ target/
 
 # Assets
 /assets
+/venv
+
+# Pycharm
+.idea/

@@ -10,8 +10,9 @@ Elegance is broken down into several parts which in chronological order are:
 3. 
 
 ## Requirements
-* Python (2.7)
-* OpenCV (2.4.13)
+* Python (3.5.2)
+* opencv3 (3.1.0)
+* matplotlib (1.5.1)
 
 ## Environment Developed 
 * CentOS 6

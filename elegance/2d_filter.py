@@ -71,27 +71,46 @@ class ImageFilter:
         :param fNum: The current frame to be animated.
         :param args: Contains the 'fDiff' parameter for the difference
         animation. This is how many frames apart the subtraction should be.
-        :return: A tuple containing all the AxesImages to be animated.
+        :return: A list containing all the AxesImages to be animated.
         """
+        fDiff = args[0]
+
         self._updatePerformanceMeasuring()
 
-        fDiff = args[0]
-        rawAxes = self.updateRawAnimation(fNum)
-#        difAxes = self.updateDifferenceAnimation(fNum, fDiff)
-        otsuAxes = self.updateOtsuAnimation(fNum)
-        return rawAxes + otsuAxes
+        axes = \
+        [
+            self.updateRawAnimation(fNum),
+            self.updateRawHistAnimation(fNum),
+            self.updateDifferenceAnimation(fNum, fDiff),
+            self.updateDifferenceHistAnimation(fNum, fDiff),
+#            self.updateOtsuAnimation(fNum),
+#            self.updateOtsuHistAnimation(fNum),
+        ]
+        return axes
 
     def updateOtsuAnimation(self, fNum):
         """
-        Updates the animation that is responsible for Otsu's Thresholding.
+        Updates the animation that is responsible for showing Otsu's
+        Thresholding.
 
         :param fNum: The frame number of the first image to be subtracted.
-        :return: A list containing all the Axes to be updated.
+        :return: The Axes to be updated.
         """
         img = self.readFrame(fNum, 0)
         retval, threshold = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
-
         self.axesOtsuImg.set_data(threshold)
+        return self.axesOtsuImg
+
+    def updateOtsuHistAnimation(self, fNum):
+        """
+        Updates the animation that is responsible for showing the
+        histogram of Otsu's Thresholding.
+
+        :param fNum: The frame number of the first image to be subtracted.
+        :return: The Axes to be updated.
+        """
+        img = self.readFrame(fNum, 0)
+        retval, threshold = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
         self.axesOtsuHist.cla()
         self.axesOtsuHist.autoscale(enable=False, axis='both')
         self.axesOtsuHist.hist(threshold.ravel(),
@@ -99,20 +118,31 @@ class ImageFilter:
                               bins=256,
                               fc='k',
                               ec='k')
-
-        return [self.axesOtsuImg, self.axesOtsuHist]
+        return self.axesOtsuHist
 
     def updateDifferenceAnimation(self, fNum, fDiff):
         """
-        Updates the animation that is responsible for computing the OpenCV
+        Updates the animation that is responsible for showing the OpenCV
         difference (and not OpenCV subtract!) between two frames.
 
         :param fNum: The frame number of the first image to be subtracted.
         :param fDiff: The difference between the first and next frame.
-        :return: A list containing all the Axes to be updated.
+        :return: The Axes to be updated.
         """
-        img = self.computeFrameDifference(fNum, fNum+fDiff)
+        img = self.computeDifferenceAlgorithm(fNum, fNum + fDiff)
         self.axesDifImg.set_data(img)
+        return self.axesDifImg
+
+    def updateDifferenceHistAnimation(self, fNum, fDiff):
+        """
+        Updates the animation that is responsible for showing the histogram
+        of the OpenCV difference (and not OpenCV subtract!) between two frames.
+
+        :param fNum: The frame number of the first image to be subtracted.
+        :param fDiff: The difference between the first and next frame.
+        :return: The Axes to be updated.
+        """
+        img = self.computeDifferenceAlgorithm(fNum, fNum + fDiff)
         self.axesDifHist.cla()
         self.axesDifHist.autoscale(enable=False, axis='both')
         self.axesDifHist.hist(img.ravel(),
@@ -120,19 +150,28 @@ class ImageFilter:
                               bins=256,
                               fc='k',
                               ec='k')
-
-        return [self.axesDifImg, self.axesDifHist]
+        return self.axesDifHist
 
     def updateRawAnimation(self, fNum):
         """
-        Updates the animation that is responsible for showing the raw frames
-        and it's historgram.
+        Updates the animation that is responsible for showing the raw frames.
 
         :param fNum: The frame number to be shown.
-        :return: A list containing all the Axes to be updated.
+        :return: The Axes to be updated.
         """
         img = self.readFrame(fNum)
         self.axesRawImg.set_data(img)
+        return self.axesRawImg
+
+    def updateRawHistAnimation(self, fNum):
+        """
+        Updates the animation that is responsible for showing the histogram
+        of the raw frames.
+
+        :param fNum: The frame number to be shown.
+        :return: The Axes to be updated.
+        """
+        img = self.readFrame(fNum)
         self.axesRawHist.cla()
         self.axesRawHist.autoscale(enable=False, axis='both')
         self.axesRawHist.hist(img.ravel(),
@@ -140,34 +179,51 @@ class ImageFilter:
                               bins=256,
                               fc='k',
                               ec='k')
-
-        return [self.axesRawImg, self.axesRawHist]
+        return self.axesRawHist
 
     def initializeAllAnimation(self):
         """
         Initializes all animations.
 
-        :return: A tuple containing all the AxesImages to be initialized.
+        :return: A list containing all the AxesImages to be initialized.
         """
-        rawAxes = self.initializeRawAnimation()
-#        difAxes = self.initializeDifferenceAnimation()
-        otsuAxes = self.initializeOtsuAnimation()
-        return rawAxes + otsuAxes
+        axes = \
+        [
+            self.initializeRawAnimation(1),
+            self.initializeRawHistAnimation(2),
+            self.initializeDifferenceAnimation(3),
+            self.initializeDifferenceHistAnimation(4),
+#            self.initializeOtsuAnimation(5),
+#            self.initializeOtsuHistAnimation(6),
+        ]
+        return axes
 
-    def initializeOtsuAnimation(self):
+    def initializeOtsuAnimation(self, location):
         """
-        Initializes the animation for the Otsu's thresholding.
+        Initializes the animation for showing Otsu's thresholding.
 
-        :return: A list containing all the Axes to be initialized.
+        :param location: The location of the subplot.
+        :return: The axes to be initialized
         """
-        img = self.readFrame(self.fStart, 0)
-        retval, threshold = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
+        otsuArgs = (127, 255, cv2.THRESH_TRUNC)
+        retval, threshold = self.computeOtsuAlgorithm(self.fStart, *otsuArgs)
 
-        self.axesOtsu = self.fig.add_subplot(2, 2, 3)
+        self.axesOtsu = self.fig.add_subplot(2, 2, location)
         self.axesOtsu.set_title("Image Otsu's Thresholding")
         self.axesOtsuImg = self.axesOtsu.imshow(threshold)
+        return self.axesOtsuImg
 
-        self.axesOtsuHist = self.fig.add_subplot(2, 2, 4)
+    def initializeOtsuHistAnimation(self, location):
+        """
+        Initializes the animation for the histogram of Otsu's thresholding.
+
+        :param location: The location of the subplot.
+        :return: The axes to be initialized
+        """
+        otsuArgs = (127, 255, cv2.THRESH_TRUNC)
+        retval, threshold = self.computeOtsuAlgorithm(self.fStart, *otsuArgs)
+
+        self.axesOtsuHist = self.fig.add_subplot(2, 2, location)
         self.axesOtsuHist.set_title("Intensity Otsu's Thresholding")
         self.axesOtsuHist.set_xlim([-10, 300])
         self.axesOtsuHist.set_ylim([0, 1])
@@ -177,22 +233,33 @@ class ImageFilter:
                                fc='k',
                                ec='k')
 
-        return [self.axesOtsuImg, ]
+        return self.axesOtsuImg
 
-    def initializeDifferenceAnimation(self):
+    def initializeDifferenceAnimation(self, location):
         """
         Initializes the animation for the difference of images.
 
-        :return: A list containing all the Axes to be initialized.
+        :param location: The location of the subplot.
+        :return: The axes to be initialized
         """
-        img = self.computeFrameDifference(self.fStart, self.fStart + self.fDiff)
-
-        self.axesDif = self.fig.add_subplot(2, 2, 3)
+        self.axesDif = self.fig.add_subplot(2, 2, location)
         self.axesDif.set_title("Image Difference")
-        self.axesDifImg = self.axesDif.imshow(img)
 
-        self.axesDifHist = self.fig.add_subplot(2, 2, 4)
-        self.axesDifHist.set_title("Intensity Difference")
+        img = self.computeDifferenceAlgorithm(self.fStart, self.fStart + self.fDiff)
+        self.axesDifImg = self.axesDif.imshow(img)
+        return self.axesDifImg
+
+    def initializeDifferenceHistAnimation(self, location):
+        """
+        Initializes the animation for the histogram of the difference of
+        images.
+
+        :param location: The location of the subplot.
+        :return: The axes to be initialized
+        """
+        img = self.computeDifferenceAlgorithm(self.fStart, self.fStart + self.fDiff)
+        self.axesDifHist = self.fig.add_subplot(2, 2, location)
+        self.axesDifHist.set_title("Intensity Difference Histogram")
         self.axesDifHist.set_xlim([-10, 300])
         self.axesDifHist.set_ylim([0, 1])
         self.axesDifHist.hist(img.ravel(),
@@ -200,22 +267,31 @@ class ImageFilter:
                               bins=256,
                               fc='k',
                               ec='k')
+        return self.axesDifImg
 
-        return [self.axesDifImg, ]
-
-    def initializeRawAnimation(self):
+    def initializeRawAnimation(self, location):
         """
         Initializes the animation for the raw images.
 
+        :param location: The location of the subplot.
+        :return: A list containing all the Axes to be initialized.
+        """
+        self.axesRaw = self.fig.add_subplot(2, 2, location)
+        self.axesRaw.set_title("Image Raw")
+
+        img = self.readFrame(self.fStart)
+        self.axesRawImg = self.axesRaw.imshow(img)
+        return self.axesRawImg
+
+    def initializeRawHistAnimation(self, location):
+        """
+        Initializes the animation for histogram of the raw images.
+
+        :param location: The location of the subplot.
         :return: A list containing all the Axes to be initialized.
         """
         img = self.readFrame(self.fStart)
-
-        self.axesRaw = self.fig.add_subplot(2, 2, 1)
-        self.axesRaw.set_title("Image Raw")
-        self.axesRawImg = self.axesRaw.imshow(img)
-
-        self.axesRawHist = self.fig.add_subplot(2, 2, 2)
+        self.axesRawHist = self.fig.add_subplot(2, 2, location)
         self.axesRawHist.set_title("Intensity Raw")
         self.axesRawHist.set_xlim([-10, 300])
         self.axesRawHist.set_ylim([0, 1])
@@ -224,10 +300,22 @@ class ImageFilter:
                               bins=256,
                               fc='k',
                               ec='k')
+        return self.axesRawImg
 
-        return [self.axesRawImg, ]
+    def computeOtsuAlgorithm(self, fNum, *args):
+        """
+        Wrapper function that runs the opencv otsu's thresholding algorithm
+        on a specified frame number.
 
-    def computeFrameDifference(self, fOne, fTwo):
+        :param fNum: the frame number to perform operations on.
+        :param args: Any argument that can be passed to the OpenCV thresholding
+        function.
+        :return: The outputs of the OpenCV thresholding function.
+        """
+        img = self.readFrame(fNum, 0)
+        return cv2.threshold(img, *args)
+
+    def computeDifferenceAlgorithm(self, fOne, fTwo):
         """
         Calculates the absolute difference between the given two frames
         numbers of the worm.
@@ -304,7 +392,7 @@ if __name__ == "__main__":
     fStart = 1
     fDiff = 10
     fEnd = 680
-    fPause = 1000       # milliseconds
+    fPause = 10       # milliseconds
     dataType = "C1"
 
     imageFilter = ImageFilter(fStart, fEnd, fDiff, dataType)

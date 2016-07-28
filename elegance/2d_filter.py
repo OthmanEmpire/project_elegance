@@ -80,9 +80,9 @@ class ImageFilter:
         axes = \
         [
             self.updateRawAnimation(fNum),
-            self.updateRawHistAnimation(fNum),
+#            self.updateRawHistAnimation(fNum),
             self.updateDifferenceAnimation(fNum, fDiff),
-            self.updateDifferenceHistAnimation(fNum, fDiff),
+#            self.updateDifferenceHistAnimation(fNum, fDiff),
 #            self.updateOtsuAnimation(fNum),
 #            self.updateOtsuHistAnimation(fNum),
         ]
@@ -190,9 +190,9 @@ class ImageFilter:
         axes = \
         [
             self.initializeRawAnimation(1),
-            self.initializeRawHistAnimation(2),
+#            self.initializeRawHistAnimation(2),
             self.initializeDifferenceAnimation(3),
-            self.initializeDifferenceHistAnimation(4),
+#            self.initializeDifferenceHistAnimation(4),
 #            self.initializeOtsuAnimation(5),
 #            self.initializeOtsuHistAnimation(6),
         ]
@@ -245,8 +245,9 @@ class ImageFilter:
         self.axesDif = self.fig.add_subplot(2, 2, location)
         self.axesDif.set_title("Image Difference")
 
-        img = self.computeDifferenceAlgorithm(self.fStart, self.fStart + self.fDiff)
-        self.axesDifImg = self.axesDif.imshow(img)
+        img = self.computeDifferenceAlgorithm(self.fStart,
+                                              self.fStart + self.fDiff)
+        self.axesDifImg = self.axesDif.imshow(img, cmap="gray")
         return self.axesDifImg
 
     def initializeDifferenceHistAnimation(self, location):
@@ -315,18 +316,50 @@ class ImageFilter:
         img = self.readFrame(fNum, 0)
         return cv2.threshold(img, *args)
 
-    def computeDifferenceAlgorithm(self, fOne, fTwo):
+    def computeDifferenceAlgorithm(self, fOne, fDiff):
         """
-        Calculates the absolute difference between the given two frames
-        numbers of the worm.
+        Blurs two images, takes their absolute difference, applies a local
+        gaussian threshold, then attempts to find contours of the worm and
+        draws a rectangle around it.
 
         :param fOne: Integer number of the first frame.
-        :param fTwo: Integer number of the second frame.
+        :param fDiff: How many frames ahead the next image is.
         :return: The difference of two images in OpenCV format.
         """
         img1 = cv2.imread(self._generateFramePath(fOne))
-        img2 = cv2.imread(self._generateFramePath(fTwo))
-        return cv2.absdiff(img1, img2)
+        img2 = cv2.imread(self._generateFramePath(fOne + fDiff))
+
+        # Blurs the images
+        img1 = cv2.blur(img1, (3, 3))
+        img2 = cv2.blur(img2, (3, 3))
+
+        # Computes the absolute difference
+        diff = cv2.absdiff(img1, img2)
+        diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+
+        # Applies local gaussian thresholding to binary
+        thresh = cv2.adaptiveThreshold(diff, 255,
+                                       cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                       cv2.THRESH_BINARY_INV,
+                                       3, 6)
+
+        # Dilates image to fill gaps and finding all contours
+        thresh = cv2.dilate(thresh, None, iterations=3)
+        (contours, _) = cv2.findContours(thresh.copy(),
+                                         cv2.RETR_EXTERNAL,
+                                         cv2.CHAIN_APPROX_SIMPLE)
+
+        # Extracting only sufficiently large contours and drawing a
+        # rectangle around them
+        for c in contours:
+            if cv2.contourArea(c) < 1000:
+                continue
+
+            (x, y, w, h) = cv2.boundingRect(c)
+            print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
+            cv2.rectangle(thresh, (x, y), (x+w, y+h), (255, 255, 255), 2)
+
+        return thresh
 
     def readFrame(self, fNum, flag=1):
         """
@@ -392,7 +425,7 @@ if __name__ == "__main__":
     fStart = 1
     fDiff = 10
     fEnd = 680
-    fPause = 10       # milliseconds
+    fPause = 1000       # milliseconds
     dataType = "C1"
 
     imageFilter = ImageFilter(fStart, fEnd, fDiff, dataType)

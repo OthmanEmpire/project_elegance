@@ -7,316 +7,116 @@
 # Author: Othman Alikhan                                                      #
 # Email: sc14omsa@leeds.ac.uk                                                 #
 #                                                                             #
-# Python Version: 2.6.6                                                       #
+# Python Version: 2.7.12                                                      #
 # Date Created: 2016-07-15                                                    #
 ###############################################################################
 """
 import os
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+import sys
 import time
 
+import cv2
+import numpy as np
+from pyqtgraph import QtCore, QtGui
+import pyqtgraph as pg
+import pyqtgraph.examples
+#pyqtgraph.examples.run()
 
+
+class ImageController:
+
+    def main(self):
+        # Reading
+        dataType = "C"
+        cameraNum = "1"
+        imageReader = ImageReader(cameraNum, dataType)
+        img1 = imageReader.readFrame(1)
+        img2 = imageReader.readFrame(20)
+
+        # Subtracting
+        imageFilter = ImageFilter()
+        diff = imageFilter.computeDifferenceAlgorithm(img1, img2)
+
+        # Displaying
+        imageDisplay = ImageDisplay(img1)
+
+
+class ImageDisplay:
+    """
+    Responsible for rendering the images on screen using pyqtgraph.
+    """
+
+    def __init__(self, img):
+        """
+        Initializes the Qt GUI framework.
+        """
+        app = QtGui.QApplication([])
+
+        ## Create window with ImageView widget
+        window = QtGui.QMainWindow()
+        window.resize(800, 800)
+        window.setWindowTitle("I See Elegance. I C. Elegans")
+        window.setContentsMargins(0, 0, 0, 0)
+
+        mainLayout = QtGui.QVBoxLayout()
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+
+        mainWidget = QtGui.QWidget()
+        mainWidget.setContentsMargins(0, 0, 0, 0)
+
+        imageViewA = pg.ImageView()
+        imageViewA.setImage(img)
+        imageViewA.setContentsMargins(0, 0, 0, 0)
+
+        imageViewB = pg.ImageView()
+        imageViewB.setImage(img)
+        imageViewB.setContentsMargins(0, 0, 0, 0)
+
+        mainWidget.setLayout(mainLayout)
+        mainLayout.addWidget(imageViewA)
+        mainLayout.addWidget(imageViewB)
+        window.setCentralWidget(mainWidget)
+        window.show()
+
+        ## Start Qt event loop unless running interactive mode or using pyside.
+        if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+            QtGui.QApplication.instance().exec_()
+
+
+################################### DONE #######################################
 class ImageFilter:
     """
-    Responsible for filtering out noise from the 2D images of C. Elegans.
+    Responsible for applying filtering algorithms on the images.
     """
 
-    def __init__(self, fStart, fEnd, fDiff, dataType):
+    def __init__(self):
         """
-        A simple constructor.
-
-        :param fStart: The first frame of the worm images.
-        :param fEnd: The last frame of the worm images.
-        :param fDiff: Number of frames apart the two subtracted frames are.
-        :param dataType: A string consisting of two characters where the
-        first character denotes which directory (alphabetical) and the second
-        character denotes camera number.
+        A simple constructor that initializes variables used to crudely
+        time algorithms.
         """
-        # Initializing instance variables
-        self.fStart = fStart
-        self.fEnd = fEnd
-        self.fDiff = fDiff
-        self.fPause = fPause
-        self.dataType = dataType
+        self.currentFrame = 0
+        self.timeStart = None
 
-        # Initializing matplotlib figure
-        self.fig = plt.figure()
-        self.fig.set_size_inches(18.5, 10.5, forward=True)
-        self.fig.canvas.set_window_title("I See Elegance?")
-
-    def runAnimation(self):
+    def computeOtsuAlgorithm(self, img, *args):
         """
-        Runs all the worm animations which are based in the animate function.
-        """
-        self._startPerformanceMeasuring()
+        Wrapper function that simply runs the OpenCV Otsu's thresholding.
 
-        ani = animation.FuncAnimation(self.fig,
-                                      self.updateAllAnimation,
-                                      init_func=self.initializeAllAnimation,
-                                      frames=np.arange(self.fStart, self.fEnd),
-                                      fargs=(fDiff,),
-                                      interval=self.fPause,
-                                      repeat=False,
-                                      blit=True,
-                                      save_count=0)
-        plt.show()
-
-    def updateAllAnimation(self, fNum, *args):
-        """
-        Updates all animations.
-
-        :param fNum: The current frame to be animated.
-        :param args: Contains the 'fDiff' parameter for the difference
-        animation. This is how many frames apart the subtraction should be.
-        :return: A list containing all the AxesImages to be animated.
-        """
-        fDiff = args[0]
-
-        self._updatePerformanceMeasuring()
-
-        axes = \
-        [
-            self.updateRawAnimation(fNum),
-#            self.updateRawHistAnimation(fNum),
-            self.updateDifferenceAnimation(fNum, fDiff),
-#            self.updateDifferenceHistAnimation(fNum, fDiff),
-#            self.updateOtsuAnimation(fNum),
-#            self.updateOtsuHistAnimation(fNum),
-        ]
-        return axes
-
-    def updateOtsuAnimation(self, fNum):
-        """
-        Updates the animation that is responsible for showing Otsu's
-        Thresholding.
-
-        :param fNum: The frame number of the first image to be subtracted.
-        :return: The Axes to be updated.
-        """
-        img = self.readFrame(fNum, 0)
-        retval, threshold = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
-        self.axesOtsuImg.set_data(threshold)
-        return self.axesOtsuImg
-
-    def updateOtsuHistAnimation(self, fNum):
-        """
-        Updates the animation that is responsible for showing the
-        histogram of Otsu's Thresholding.
-
-        :param fNum: The frame number of the first image to be subtracted.
-        :return: The Axes to be updated.
-        """
-        img = self.readFrame(fNum, 0)
-        retval, threshold = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
-        self.axesOtsuHist.cla()
-        self.axesOtsuHist.autoscale(enable=False, axis='both')
-        self.axesOtsuHist.hist(threshold.ravel(),
-                              normed=True,
-                              bins=256,
-                              fc='k',
-                              ec='k')
-        return self.axesOtsuHist
-
-    def updateDifferenceAnimation(self, fNum, fDiff):
-        """
-        Updates the animation that is responsible for showing the OpenCV
-        difference (and not OpenCV subtract!) between two frames.
-
-        :param fNum: The frame number of the first image to be subtracted.
-        :param fDiff: The difference between the first and next frame.
-        :return: The Axes to be updated.
-        """
-        img = self.computeDifferenceAlgorithm(fNum, fNum + fDiff)
-        self.axesDifImg.set_data(img)
-        return self.axesDifImg
-
-    def updateDifferenceHistAnimation(self, fNum, fDiff):
-        """
-        Updates the animation that is responsible for showing the histogram
-        of the OpenCV difference (and not OpenCV subtract!) between two frames.
-
-        :param fNum: The frame number of the first image to be subtracted.
-        :param fDiff: The difference between the first and next frame.
-        :return: The Axes to be updated.
-        """
-        img = self.computeDifferenceAlgorithm(fNum, fNum + fDiff)
-        self.axesDifHist.cla()
-        self.axesDifHist.autoscale(enable=False, axis='both')
-        self.axesDifHist.hist(img.ravel(),
-                              normed=True,
-                              bins=256,
-                              fc='k',
-                              ec='k')
-        return self.axesDifHist
-
-    def updateRawAnimation(self, fNum):
-        """
-        Updates the animation that is responsible for showing the raw frames.
-
-        :param fNum: The frame number to be shown.
-        :return: The Axes to be updated.
-        """
-        img = self.readFrame(fNum)
-        self.axesRawImg.set_data(img)
-        return self.axesRawImg
-
-    def updateRawHistAnimation(self, fNum):
-        """
-        Updates the animation that is responsible for showing the histogram
-        of the raw frames.
-
-        :param fNum: The frame number to be shown.
-        :return: The Axes to be updated.
-        """
-        img = self.readFrame(fNum)
-        self.axesRawHist.cla()
-        self.axesRawHist.autoscale(enable=False, axis='both')
-        self.axesRawHist.hist(img.ravel(),
-                              normed=True,
-                              bins=256,
-                              fc='k',
-                              ec='k')
-        return self.axesRawHist
-
-    def initializeAllAnimation(self):
-        """
-        Initializes all animations.
-
-        :return: A list containing all the AxesImages to be initialized.
-        """
-        axes = \
-        [
-            self.initializeRawAnimation(1),
-#            self.initializeRawHistAnimation(2),
-            self.initializeDifferenceAnimation(3),
-#            self.initializeDifferenceHistAnimation(4),
-#            self.initializeOtsuAnimation(5),
-#            self.initializeOtsuHistAnimation(6),
-        ]
-        return axes
-
-    def initializeOtsuAnimation(self, location):
-        """
-        Initializes the animation for showing Otsu's thresholding.
-
-        :param location: The location of the subplot.
-        :return: The axes to be initialized
-        """
-        otsuArgs = (127, 255, cv2.THRESH_TRUNC)
-        retval, threshold = self.computeOtsuAlgorithm(self.fStart, *otsuArgs)
-
-        self.axesOtsu = self.fig.add_subplot(2, 2, location)
-        self.axesOtsu.set_title("Image Otsu's Thresholding")
-        self.axesOtsuImg = self.axesOtsu.imshow(threshold)
-        return self.axesOtsuImg
-
-    def initializeOtsuHistAnimation(self, location):
-        """
-        Initializes the animation for the histogram of Otsu's thresholding.
-
-        :param location: The location of the subplot.
-        :return: The axes to be initialized
-        """
-        otsuArgs = (127, 255, cv2.THRESH_TRUNC)
-        retval, threshold = self.computeOtsuAlgorithm(self.fStart, *otsuArgs)
-
-        self.axesOtsuHist = self.fig.add_subplot(2, 2, location)
-        self.axesOtsuHist.set_title("Intensity Otsu's Thresholding")
-        self.axesOtsuHist.set_xlim([-10, 300])
-        self.axesOtsuHist.set_ylim([0, 1])
-        self.axesOtsuHist.hist(threshold.ravel(),
-                               normed=True,
-                               bins=256,
-                               fc='k',
-                               ec='k')
-
-        return self.axesOtsuImg
-
-    def initializeDifferenceAnimation(self, location):
-        """
-        Initializes the animation for the difference of images.
-
-        :param location: The location of the subplot.
-        :return: The axes to be initialized
-        """
-        self.axesDif = self.fig.add_subplot(2, 2, location)
-        self.axesDif.set_title("Image Difference")
-
-        img = self.computeDifferenceAlgorithm(self.fStart,
-                                              self.fStart + self.fDiff)
-        self.axesDifImg = self.axesDif.imshow(img, cmap="gray")
-        return self.axesDifImg
-
-    def initializeDifferenceHistAnimation(self, location):
-        """
-        Initializes the animation for the histogram of the difference of
-        images.
-
-        :param location: The location of the subplot.
-        :return: The axes to be initialized
-        """
-        img = self.computeDifferenceAlgorithm(self.fStart, self.fStart + self.fDiff)
-        self.axesDifHist = self.fig.add_subplot(2, 2, location)
-        self.axesDifHist.set_title("Intensity Difference Histogram")
-        self.axesDifHist.set_xlim([-10, 300])
-        self.axesDifHist.set_ylim([0, 1])
-        self.axesDifHist.hist(img.ravel(),
-                              normed=True,
-                              bins=256,
-                              fc='k',
-                              ec='k')
-        return self.axesDifImg
-
-    def initializeRawAnimation(self, location):
-        """
-        Initializes the animation for the raw images.
-
-        :param location: The location of the subplot.
-        :return: A list containing all the Axes to be initialized.
-        """
-        self.axesRaw = self.fig.add_subplot(2, 2, location)
-        self.axesRaw.set_title("Image Raw")
-
-        img = self.readFrame(self.fStart)
-        self.axesRawImg = self.axesRaw.imshow(img)
-        return self.axesRawImg
-
-    def initializeRawHistAnimation(self, location):
-        """
-        Initializes the animation for histogram of the raw images.
-
-        :param location: The location of the subplot.
-        :return: A list containing all the Axes to be initialized.
-        """
-        img = self.readFrame(self.fStart)
-        self.axesRawHist = self.fig.add_subplot(2, 2, location)
-        self.axesRawHist.set_title("Intensity Raw")
-        self.axesRawHist.set_xlim([-10, 300])
-        self.axesRawHist.set_ylim([0, 1])
-        self.axesRawHist.hist(img.ravel(),
-                              normed=True,
-                              bins=256,
-                              fc='k',
-                              ec='k')
-        return self.axesRawImg
-
-    def computeOtsuAlgorithm(self, fNum, *args):
-        """
-        Wrapper function that runs the opencv otsu's thresholding algorithm
-        on a specified frame number.
-
-        :param fNum: the frame number to perform operations on.
-        :param args: Any argument that can be passed to the OpenCV thresholding
-        function.
+        :param img: The image to perform the algorithm on.
         :return: The outputs of the OpenCV thresholding function.
         """
-        img = self.readFrame(fNum, 0)
         return cv2.threshold(img, *args)
 
-    def computeDifferenceAlgorithm(self, fOne, fDiff):
+    def computeDifferenceAlgorithm(self, img1, img2):
+        """
+        Computes the absolute difference between two frames.
+
+        :param img1: The first image to be used in the difference.
+        :param img2: The second image to be used in the difference.
+        :return: The difference of two images in OpenCV format.
+        """
+        return cv2.absdiff(img1, img2)
+
+    def trackWormAlgorithm(self, fOne, fDiff):
         """
         Blurs two images, takes their absolute difference, applies a local
         gaussian threshold, then attempts to find contours of the worm and
@@ -326,40 +126,96 @@ class ImageFilter:
         :param fDiff: How many frames ahead the next image is.
         :return: The difference of two images in OpenCV format.
         """
+        # Magic Parameters
+        downSize = (256, 256)
+        threshold = 25
+        dilationIter = 10
+        contourMinArea = 100   # worm ~ 200 x 10 pixels^2
+
+
+
+
+        self.img = cv2.imread(self._generateFramePath(self.fStart))
+
         img1 = cv2.imread(self._generateFramePath(fOne))
         img2 = cv2.imread(self._generateFramePath(fOne + fDiff))
 
-        # Blurs the images
-        img1 = cv2.blur(img1, (3, 3))
-        img2 = cv2.blur(img2, (3, 3))
+        # Downsize images
+        img1 = cv2.resize(img1, downSize, img1)
+        img2 = cv2.resize(img2, downSize, img2)
 
         # Computes the absolute difference
         diff = cv2.absdiff(img1, img2)
         diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
 
-        # Applies local gaussian thresholding to binary
-        thresh = cv2.adaptiveThreshold(diff, 255,
-                                       cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY_INV,
-                                       3, 6)
+        # Applies global thresholding to binary
+        _, thresh = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)
 
         # Dilates image to fill gaps and finding all contours
-        thresh = cv2.dilate(thresh, None, iterations=3)
-        (contours, _) = cv2.findContours(thresh.copy(),
+        dillation = cv2.dilate(thresh, None, iterations=dilationIter)
+        (contours, _) = cv2.findContours(dillation.copy(),
                                          cv2.RETR_EXTERNAL,
                                          cv2.CHAIN_APPROX_SIMPLE)
+
+
+        img = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
+
+
 
         # Extracting only sufficiently large contours and drawing a
         # rectangle around them
         for c in contours:
-            if cv2.contourArea(c) < 1000:
+            if cv2.contourArea(c) < contourMinArea:
                 continue
 
             (x, y, w, h) = cv2.boundingRect(c)
-            print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
-            cv2.rectangle(thresh, (x, y), (x+w, y+h), (255, 255, 255), 2)
+#            print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
+#            print("Contours Area: %d " % cv2.contourArea(c))
+            cv2.rectangle(self.img, (x, y), (x+w, y+h), (170, 0, 0), 2)
 
-        return thresh
+
+        return self.img
+
+    def _updatePerformanceMeasuring(self):
+        """
+        Updates the last frame called in the animation and prints the time
+        elapsed, and average FPS since the last call to _beginTiming function.
+        """
+        print("--- PERFORMANCE MEASUREMENTS UPDATING ---")
+        self.currentFrame += 1
+        dt = time.time() - self.timeStart
+        fps = (self.currentFrame / dt)
+
+        print("Time Elapsed: %d seconds" % dt)
+        print("Current Frame: %d" % self.currentFrame)
+        print("Overall FPS: %.2f" % fps)
+
+    def _startPerformanceMeasuring(self):
+        """
+        Starts the measuring of time and current frame.
+        To be used in conjunction with it's update method.
+        """
+        print("--- PERFORMANCE MEASUREMENTS STARTING NOW ---")
+        self.timeStart = time.time()
+        self.currentFrame = 0
+
+
+class ImageReader:
+    """
+    Responsible for handling image I/O.
+    """
+
+    def __init__(self, cameraNum, dataType):
+        """
+        A simple constructor.
+
+        :param cameraNum: The camera number that took the images.
+        :param dataType: A capitalized alphabetical character that denotes
+        directory.
+        """
+
+        self.camera = "cam" + str(cameraNum)
+        self.type = dataType
 
     def readFrame(self, fNum, flag=1):
         """
@@ -381,11 +237,8 @@ class ImageFilter:
         :param fNum: The frame number of the 2D image.
         :return: A string of the absolute path to a worm image.
         """
-        type = self.dataType[0]
-        camera = "cam" + self.dataType[1]
         frame = "frame_%06d.png" % fNum
-
-        path = ["..", "assets", "images", type, camera, frame]
+        path = ["..", "..", "assets", "images", self.type, self.camera, frame]
 
         relPath = os.path.join(*path)
         absPath = os.path.abspath(relPath)
@@ -394,39 +247,17 @@ class ImageFilter:
             return absPath
         else:
             raise NameError("Could not generate a path frame number %d!" % fNum)
-
-    def _updatePerformanceMeasuring(self):
-        """
-        Updates the last frame called in the animation and prints the time
-        elapsed, and average FPS since the last call to _beginTiming function.
-        """
-        print("--- PERFORMANCE MEASUREMENTS UPDATING ---")
-        self.currentFrame += 1
-
-        dt = time.time() - self.timeStart
-        fps = (self.currentFrame / dt)
-
-        print("Time Elapsed: %d seconds" % dt)
-        print("Current Frame: %d" % self.currentFrame)
-        print("Overall FPS: %.2f" % fps)
-
-    def _startPerformanceMeasuring(self):
-        """
-        Starts the measuring of time and current frame.
-        To be used in conjunction with it's update method.
-        """
-        print("--- PERFORMANCE MEASUREMENTS STARTING NOW ---")
-        self.timeStart = time.time()
-        self.currentFrame = 0
-
+################################### DONE #######################################
 
 if __name__ == "__main__":
     # Control variables
     fStart = 1
-    fDiff = 10
+    fDiff = 25*10
     fEnd = 680
     fPause = 1000       # milliseconds
-    dataType = "C1"
 
-    imageFilter = ImageFilter(fStart, fEnd, fDiff, dataType)
-    imageFilter.runAnimation()
+    # Run
+    imageController = ImageController()
+    imageController.main()
+
+

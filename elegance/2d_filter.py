@@ -7,7 +7,7 @@
 # Author: Othman Alikhan                                                      #
 # Email: sc14omsa@leeds.ac.uk                                                 #
 #                                                                             #
-# Python Version: 2.7.12                                                      #
+# Python Version: 2.7                                                      #
 # Date Created: 2016-07-15                                                    #
 ###############################################################################
 """
@@ -17,8 +17,11 @@ import time
 
 import cv2
 import numpy as np
-from pyqtgraph import QtCore, QtGui
+
 import pyqtgraph as pg
+from pyqtgraph import QtCore, QtGui
+from pyqtgraph.dockarea import *
+
 import pyqtgraph.examples
 #pyqtgraph.examples.run()
 
@@ -38,52 +41,106 @@ class ImageController:
         diff = imageFilter.computeDifferenceAlgorithm(img1, img2)
 
         # Displaying
-        imageDisplay = ImageDisplay(img1)
-
-
-class ImageDisplay:
-    """
-    Responsible for rendering the images on screen using pyqtgraph.
-    """
-
-    def __init__(self, img):
-        """
-        Initializes the Qt GUI framework.
-        """
-        app = QtGui.QApplication([])
-
-        ## Create window with ImageView widget
-        window = QtGui.QMainWindow()
-        window.resize(800, 800)
-        window.setWindowTitle("I See Elegance. I C. Elegans")
-        window.setContentsMargins(0, 0, 0, 0)
-
-        mainLayout = QtGui.QVBoxLayout()
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-
-        mainWidget = QtGui.QWidget()
-        mainWidget.setContentsMargins(0, 0, 0, 0)
-
-        imageViewA = pg.ImageView()
-        imageViewA.setImage(img)
-        imageViewA.setContentsMargins(0, 0, 0, 0)
-
-        imageViewB = pg.ImageView()
-        imageViewB.setImage(img)
-        imageViewB.setContentsMargins(0, 0, 0, 0)
-
-        mainWidget.setLayout(mainLayout)
-        mainLayout.addWidget(imageViewA)
-        mainLayout.addWidget(imageViewB)
-        window.setCentralWidget(mainWidget)
-        window.show()
+        imageDisplay = ImageDisplay()
+        imageDisplay.rawImageView.setImage(img1)
+        imageDisplay.heatImageView.setImage(diff)
+        imageDisplay.window.show()
 
         ## Start Qt event loop unless running interactive mode or using pyside.
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
             QtGui.QApplication.instance().exec_()
 
 
-################################### DONE #######################################
+class ImageDisplay:
+    """
+    Responsible for rendering the images on screen using qt/pyqtgraph.
+    """
+
+    def __init__(self):
+        """
+        Initializes the GUI.
+        """
+        # Initialize app
+        self.app = QtGui.QApplication([])
+
+        # Initializing window and docks
+        self.initializeWindow()
+        self.initializeDocks()
+
+        # Initializing ImageViews
+        self.initializeRawImageView()
+        self.initializeHeatImageView()
+        self.initializeRoiImageView()
+
+        # Adding ImageViews to docks
+        self.rawDock.addWidget(self.rawImageView)
+        self.heatDock.addWidget(self.heatImageView)
+        self.roiDock.addWidget(self.roiImageView)
+
+        # Setting central widget
+        self.window.setCentralWidget(self.dockArea)
+
+    def initializeWindow(self):
+        """
+        Initializes the main GUI window.
+        """
+        self.window = QtGui.QMainWindow()
+        self.window.resize(800, 800)
+        self.window.setWindowTitle("I See Elegance. I C. Elegans")
+        self.window.setContentsMargins(0, 0, 0, 0)
+
+    def initializeDocks(self):
+        """
+        Initializes the dock widgets.
+        """
+        # Create the docking area
+        self.dockArea = DockArea()
+        self.dockArea.setContentsMargins(0, 0, 0, 0)
+
+        # Raw image dock
+        self.rawDock = Dock("Raw Image", size=(200, 400))
+        self.rawDock.setContentsMargins(0, 0, 0, 0)
+
+        # Heat map dock
+        self.heatDock = Dock("Heat Map", size=(200, 400))
+        self.heatDock.setContentsMargins(0, 0, 0, 0)
+
+        # Region of interest dock
+        self.roiDock = Dock("ROI (Tracking)", size=(200, 400))
+        self.roiDock.setContentsMargins(0, 0, 0, 0)
+
+        # Place the docks appropriately into the docking area
+        self.dockArea.addDock(self.rawDock, "top")
+        self.dockArea.addDock(self.heatDock, "bottom")
+        self.dockArea.addDock(self.roiDock, "right", self.heatDock)
+
+    def initializeRawImageView(self):
+        """
+        Initializes the ImageView responsible for handling the raw images.
+        """
+        self.rawImageView = self.generateImageView()
+
+    def initializeHeatImageView(self):
+        """
+        Initializes the ImageView responsible for handling the heat images.
+        """
+        self.heatImageView = self.generateImageView()
+
+    def initializeRoiImageView(self):
+        """
+        Initializes the ImageView responsible for handling the roi images.
+        """
+        self.roiImageView = self.generateImageView()
+
+    def generateImageView(self):
+        """
+        Generates a generic ImageView.
+        """
+        imageView = pg.ImageView()
+        imageView.setContentsMargins(0, 0, 0, 0)
+        return imageView
+
+
 class ImageFilter:
     """
     Responsible for applying filtering algorithms on the images.
@@ -247,7 +304,7 @@ class ImageReader:
             return absPath
         else:
             raise NameError("Could not generate a path frame number %d!" % fNum)
-################################### DONE #######################################
+
 
 if __name__ == "__main__":
     # Control variables

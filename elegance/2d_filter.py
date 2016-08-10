@@ -52,7 +52,9 @@ class ImageController:
         Animates the worm algorithm (Algorithm W)
         """
         self.leThread = AnimationPreRenderer(self.imageHandler)
-        self.leThread.generateDifferenceImages(1, 100, 20)
+        #self.leThread.generateDifferenceImages(1, 10, 1)
+        #self.leThread.generateOtsuImages(1, 100)
+        self.leThread.generateWormTrackingImages(1, 100, 20)
         self.exit()
 
     def exit(self):
@@ -190,6 +192,8 @@ class ImageDisplay(QtGui.QWidget):
         imageView.setContentsMargins(0, 0, 0, 0)
         return imageView
 
+################################################################################
+
 
 class AnimationPreRenderer:
     """
@@ -202,25 +206,64 @@ class AnimationPreRenderer:
         A simple constructor.
 
         :param imageHandler: An instantiated ImageHandler object that is
-        responsible for reading the correct worm frames.
+        responsible for reading and writing to the correct directories.
         """
         self.imageHandler = imageHandler
         self.imageFilter = ImageFilter()
 
+    def generateWormTrackingImages(self, fStart, fEnd, fDiff):
+        """
+        :param fStart: The number of first frame.
+        :param fEnd: The number of the last frame.
+        :param fDiff: The difference range between two consecutive frames.
+
+        Generates and saves the images that show worm tracking algorithm.
+        """
+        print("### STARTING WORM TRACKING IMAGE GENERATION ###")
+
+        for frame in range(fStart, fEnd):
+            img1 = self.imageHandler.readFrame(frame, "raw")
+            img2 = self.imageHandler.readFrame(frame + fDiff, "raw")
+            track = self.imageFilter.computeWormTrackingAlgorithm(img1, img2)
+            self.imageHandler.writeImage(frame, "track", track)
+
+        print("### COMPLETED WORM TRACKING IMAGE GENERATION ###")
+
     def generateDifferenceImages(self, fStart, fEnd, fDiff):
         """
-        Generates and saves the images responsible for showing the absolute
-        difference between consecutive images.
+        :param fStart: The number of first frame.
+        :param fEnd: The number of the last frame.
+        :param fDiff: The difference range between two consecutive frames.
+
+        Generates and saves the images that show the absolute difference
+        between consecutive images.
         """
+        print("### GENERATING DIFFERENCE IMAGES ###")
+
         for frame in range(fStart, fEnd):
             img1 = self.imageHandler.readFrame(frame, "raw")
             img2 = self.imageHandler.readFrame(frame + fDiff, "raw")
             diff = self.imageFilter.computeDifferenceAlgorithm(img1, img2)
             self.imageHandler.writeImage(frame, "difference", diff)
 
+        print("### COMPLETED DIFFERENCE IMAGE GENERATION ###")
 
+    def generateOtsuImages(self, fStart, fEnd):
+        """
+        :param fStart: The number of first frame.
+        :param fEnd: The number of the last frame.
 
-################################################################################
+        Generates and saves the images that show Otsu's thresholding.
+        """
+        print("### STARTING OTSU IMAGE GENERATION ###")
+
+        for frame in range(fStart, fEnd):
+            img = self.imageHandler.readFrame(frame, "raw")
+            args = (img, 127, 255, cv2.THRESH_BINARY)
+            _, thresh = self.imageFilter.computeOtsuAlgorithm(*args)
+            self.imageHandler.writeImage(frame, "otsu", thresh)
+
+        print("### COMPLETED OTSU IMAGE GENERATION ###")
 
 
 class ImageFilter:
@@ -256,7 +299,7 @@ class ImageFilter:
         return cv2.absdiff(img1, img2)
 
     #TODO: Complete worm tracking algorithm
-    def trackWormAlgorithm(self, img1, img2):
+    def computeWormTrackingAlgorithm(self, img1, img2):
         """
         Blurs two images, takes their absolute difference, applies a local
         gaussian threshold, then attempts to find contours of the worm and
@@ -302,12 +345,13 @@ class ImageFilter:
         # Extracting only sufficiently large contours and drawing a
         # rectangle around them
         for c in contours:
+            break
             if cv2.contourArea(c) < contourMinArea:
                 continue
 
             (x, y, w, h) = cv2.boundingRect(c)
-#            print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
-#            print("Contours Area: %d " % cv2.contourArea(c))
+            #print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
+            #print("Contours Area: %d " % cv2.contourArea(c))
             cv2.rectangle(img, (x, y), (x+w, y+h), (170, 0, 0), 2)
 
 
@@ -406,7 +450,7 @@ class ImageHandler:
         absPath = os.path.abspath(relPath)
 
         # Attempts to create missing directories
-        availableTypes = ["raw", "difference", "heat"]
+        availableTypes = ["raw", "otsu", "difference", "track", "heat"]
         if not os.path.exists(absPath) and fType in availableTypes:
             os.makedirs(absPath)
 

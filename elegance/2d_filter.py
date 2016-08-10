@@ -32,29 +32,46 @@ class ImageController:
     algorithms.
     """
 
-    def __init__(self, param):
+    def __init__(self, args):
         """
         A simple constructor.
 
-        :param param: A dictionary containing all the control parameters.
+        :args param: A dictionary containing all the control parameters.
         """
-        self.param = param
+        self.args = args
+        self.imageHandler = ImageHandler(self.args["dataDate"],
+                                         self.args["cameraNum"])
+        self.initializeGUI()
+
+    def initializeGUI(self):
+        """
+        Initializes the Qt GUI framework and application.
+        """
         self.app = QtGui.QApplication(sys.argv)
-        self.imageDisplay = ImageDisplay(self.param["fStart"],
-                                         self.param["fEnd"],
-                                         self.param["fInterval"])
+        self.imageDisplay = ImageDisplay(self.args["fStart"],
+                                         self.args["fEnd"],
+                                         self.args["fInterval"],
+                                         self.args["fSpeedFactor"],
+                                         self.imageHandler)
 
-        self.imageHandler = ImageHandler(self.param["dataDate"],
-                                         self.param["cameraNum"])
+    def preRenderAnimation(self):
+        """
+        Generates the images used in the animation.
+        """
+        preRenderer = AnimationPreRenderer(self.imageHandler)
+        #preRenderer.generateOtsuImages(self.args["fStart"], self.args["fEnd"])
+        #preRenderer.generateDifferenceImages(self.args["fStart"],
+        #                                     self.args["fEnd"],
+        #                                     self.args["fDiff"])
+        preRenderer.generateWormTrackingImages(self.args["fStart"],
+                                               self.args["fEnd"],
+                                               self.args["fDiff"])
 
-    def run(self):
+    def runAnimation(self):
         """
-        Animates the worm algorithm (Algorithm W)
+        Runs the GUI worm images animation.
         """
-        self.leThread = AnimationPreRenderer(self.imageHandler)
-        #self.leThread.generateDifferenceImages(1, 10, 1)
-        #self.leThread.generateOtsuImages(1, 100)
-        self.leThread.generateWormTrackingImages(1, 100, 20)
+        self.imageDisplay.animationTimer.start()
         self.exit()
 
     def exit(self):
@@ -66,24 +83,25 @@ class ImageController:
         except SystemExit:
             print("Exiting Application!")
 
-
-
-
 class ImageDisplay(QtGui.QWidget):
     """
     Responsible for rendering the images on screen using qt/pyqtgraph.
     """
 
-    def __init__(self, fStart, fEnd, fInterval):
+    def __init__(self, fStart, fEnd, fInterval, fSpeedFactor, imageHandler):
         """
         :param fStart: The number of first frame of the animation.
         :param fEnd: The number of the last frame of the animation.
         :param fInterval: The delay in milliseconds between adjacent frames.
+        :param fSpeedFactor: Integer times the speed of the animation
+        :param imageHandler: An instantiated ImageHandler object that is
+        responsible for reading and writing to the correct directories.
 
         Initializes the GUI.
         """
-        # Initialize super class
+        # Initialize super class and instance variables
         super(self.__class__, self).__init__()
+        self.imageHandler = imageHandler
 
         # Initializing window and docks
         self.initializeWindow()
@@ -104,7 +122,7 @@ class ImageDisplay(QtGui.QWidget):
         self.window.show()
 
         # Begin animation timing
-        self.initializeTimer(fStart, fEnd, fInterval)
+        self.initializeTimer(fStart, fEnd, fInterval, fSpeedFactor)
 
     def initializeWindow(self):
         """
@@ -158,31 +176,45 @@ class ImageDisplay(QtGui.QWidget):
         """
         self.roiImageView = self._generateView()
 
-    def initializeTimer(self, fStart, fEnd, fInterval):
+    def initializeTimer(self, fStart, fEnd, fInterval, fSpeedFactor):
         """
         :param fStart: The number of first frame of the animation.
         :param fEnd: The number of the last frame of the animation.
         :param fInterval: The delay in milliseconds between adjacent frames.
+        :param fSpeedFactor: Integer times the speed of the animation
 
         Initializes the timer responsible for tracking animation timing.
         """
+        duration = fSpeedFactor * fInterval * (fEnd - fStart)
         self.animationTimer = QtCore.QTimeLine()
         self.animationTimer.setFrameRange(fStart, fEnd)
         self.animationTimer.setUpdateInterval(fInterval)
-        self.animationTimer.setDuration(fEnd*fInterval)
-        self.animationTimer.valueChanged.connect(self.triggerAnimate)
-        self.animationTimer.start()
+        self.animationTimer.setDuration(duration)
+        self.animationTimer.valueChanged.connect(self.updateAnimation)
 
-    def triggerAnimate(self):
+    def updateAnimation(self):
         """
-        Emits a signal to indicate that an update to the gui animation
-        is needed.
+        Updates the animation displayed by changing the worm frame
+        being displayed.
         """
-        #TODO: Remove print statement
-        print(self.animationTimer.currentFrame(),
-              self.animationTimer.currentTime())
-        self.emit(QtCore.SIGNAL("ANIMATE"))
-        self.animationTimer.emit(QtCore.SIGNAL("ANIMATE"))
+        frame = self.animationTimer.currentFrame()
+        time = self.animationTimer.currentTime()
+        print("Frame: %d, Time: %.3f seconds" % (frame, time/1000.0))
+
+        # Update raw animation
+        raw = self.imageHandler.readFrame(frame, "raw")
+        raw = cv2.resize(raw, (512, 512), raw)
+        self.rawImageView.setImage(raw,
+                                   autoRange=False,
+                                   autoLevels=False,
+                                   autoHistogramRange=False)
+
+        # Update difference animation
+        diff = self.imageHandler.readFrame(frame, "difference")
+        self.heatImageView.setImage(diff,
+                                    autoRange=False,
+                                    autoHistogramRange=False)
+
 
     def _generateView(self):
         """
@@ -191,8 +223,6 @@ class ImageDisplay(QtGui.QWidget):
         imageView = pg.ImageView()
         imageView.setContentsMargins(0, 0, 0, 0)
         return imageView
-
-################################################################################
 
 
 class AnimationPreRenderer:
@@ -466,14 +496,15 @@ if __name__ == "__main__":
     #TODO: Document parameters that can be modified in all called methods
     param = \
     {
-        "fStart":       1,
-        "fEnd":         500,
-        "fInterval":    100,   # milliseconds
-        "fDiff":        20,
-        "dataDate":     "2016_06_15",
-        "cameraNum":    "1",
+        "fStart":           1,
+        "fEnd":             300,
+        "fInterval":        40,   # milliseconds
+        "fDiff":            20,
+        "fSpeedFactor":     20,
+        "dataDate":         "2016_06_15",
+        "cameraNum":        "1",
     }
 
     # Run
     imageController = ImageController(param)
-    imageController.run()
+    imageController.runAnimation()

@@ -19,8 +19,7 @@ import cv2
 import numpy as np
 
 import pyqtgraph as pg
-from pyqtgraph import QtCore, QtGui
-from pyqtgraph.dockarea import *
+from pyqtgraph import QtCore, QtGui, dockarea
 
 import pyqtgraph.examples
 #pyqtgraph.examples.run()
@@ -54,15 +53,15 @@ class ImageController:
                                          self.args["fSpeedFactor"],
                                          self.imageHandler)
 
-    def preRenderAnimation(self):
+    def preRenderAllAnimation(self):
         """
-        Generates the images used in the animation.
+        Generates the images for all possible animations.
         """
         preRenderer = AnimationPreRenderer(self.imageHandler)
-        #preRenderer.generateOtsuImages(self.args["fStart"], self.args["fEnd"])
-        #preRenderer.generateDifferenceImages(self.args["fStart"],
-        #                                     self.args["fEnd"],
-        #                                     self.args["fDiff"])
+        preRenderer.generateOtsuImages(self.args["fStart"], self.args["fEnd"])
+        preRenderer.generateDifferenceImages(self.args["fStart"],
+                                             self.args["fEnd"],
+                                             self.args["fDiff"])
         preRenderer.generateWormTrackingImages(self.args["fStart"],
                                                self.args["fEnd"],
                                                self.args["fDiff"])
@@ -82,6 +81,7 @@ class ImageController:
             sys.exit(self.app.exec_())
         except SystemExit:
             print("Exiting Application!")
+
 
 class ImageDisplay(QtGui.QWidget):
     """
@@ -138,19 +138,19 @@ class ImageDisplay(QtGui.QWidget):
         Initializes the dock widgets.
         """
         # Create the docking area
-        self.dockArea = DockArea()
+        self.dockArea = pg.dockarea.DockArea()
         self.dockArea.setContentsMargins(0, 0, 0, 0)
 
         # Raw image dock
-        self.rawDock = Dock("Raw Image", size=(200, 400))
+        self.rawDock = pg.dockarea.Dock("Raw Image", size=(200, 400))
         self.rawDock.setContentsMargins(0, 0, 0, 0)
 
         # Heat map dock
-        self.heatDock = Dock("Heat Map", size=(200, 400))
+        self.heatDock = pg.dockarea.Dock("Heat Map", size=(200, 400))
         self.heatDock.setContentsMargins(0, 0, 0, 0)
 
         # Region of interest dock
-        self.roiDock = Dock("ROI (Tracking)", size=(200, 400))
+        self.roiDock = pg.dockarea.Dock("ROI (Tracking)", size=(200, 400))
         self.roiDock.setContentsMargins(0, 0, 0, 0)
 
         # Place the docks appropriately into the docking area
@@ -202,19 +202,24 @@ class ImageDisplay(QtGui.QWidget):
         print("Frame: %d, Time: %.3f seconds" % (frame, time/1000.0))
 
         # Update raw animation
-        raw = self.imageHandler.readFrame(frame, "raw")
-        raw = cv2.resize(raw, (512, 512), raw)
-        self.rawImageView.setImage(raw,
-                                   autoRange=False,
-                                   autoLevels=False,
-                                   autoHistogramRange=False)
+        #raw = self.imageHandler.readFrame(frame, "raw")
+        #raw = cv2.resize(raw, (512, 512), raw)
+        #self.rawImageView.setImage(raw,
+        #                           autoRange=False,
+        #                           autoLevels=False,
+        #                           autoHistogramRange=False)
 
-        # Update difference animation
-        diff = self.imageHandler.readFrame(frame, "difference")
-        self.heatImageView.setImage(diff,
+        # Update tracking animation
+        track = self.imageHandler.readFrame(frame, "track")
+        self.heatImageView.setImage(track,
                                     autoRange=False,
                                     autoHistogramRange=False)
 
+        # Update difference animation
+        #diff = self.imageHandler.readFrame(frame, "difference")
+        #self.heatImageView.setImage(diff,
+        #                            autoRange=False,
+        #                            autoHistogramRange=False)
 
     def _generateView(self):
         """
@@ -249,15 +254,16 @@ class AnimationPreRenderer:
 
         Generates and saves the images that show worm tracking algorithm.
         """
-        print("### STARTING WORM TRACKING IMAGE GENERATION ###")
+        print(">>> PRE-RENDERING WORM TRACKING IMAGES STARTING <<<")
 
-        for frame in range(fStart, fEnd):
-            img1 = self.imageHandler.readFrame(frame, "raw")
-            img2 = self.imageHandler.readFrame(frame + fDiff, "raw")
+        for f in range(fStart, fEnd+1):
+            print("Worm tracking rendering progress: %d/%d frames" % (f, fEnd))
+            img1 = self.imageHandler.readFrame(f, "raw")
+            img2 = self.imageHandler.readFrame(f+ fDiff, "raw")
             track = self.imageFilter.computeWormTrackingAlgorithm(img1, img2)
-            self.imageHandler.writeImage(frame, "track", track)
+            self.imageHandler.writeImage(f, "track", track)
 
-        print("### COMPLETED WORM TRACKING IMAGE GENERATION ###")
+        print(">>> PRE-RENDERING WORM TRACKING IMAGES COMPLETE <<<")
 
     def generateDifferenceImages(self, fStart, fEnd, fDiff):
         """
@@ -268,32 +274,34 @@ class AnimationPreRenderer:
         Generates and saves the images that show the absolute difference
         between consecutive images.
         """
-        print("### GENERATING DIFFERENCE IMAGES ###")
+        print(">>> PRE-RENDERING DIFFERENCE IMAGES STARTING <<<")
 
-        for frame in range(fStart, fEnd):
-            img1 = self.imageHandler.readFrame(frame, "raw")
-            img2 = self.imageHandler.readFrame(frame + fDiff, "raw")
+        for f in range(fStart, fEnd+1):
+            print("Difference rendering progress: %d/%d frames" % (f, fEnd))
+            img1 = self.imageHandler.readFrame(f, "raw")
+            img2 = self.imageHandler.readFrame(f + fDiff, "raw")
             diff = self.imageFilter.computeDifferenceAlgorithm(img1, img2)
-            self.imageHandler.writeImage(frame, "difference", diff)
+            self.imageHandler.writeImage(f, "difference", diff)
 
-        print("### COMPLETED DIFFERENCE IMAGE GENERATION ###")
+        print(">>> PRE-RENDERING DIFFERENCE IMAGES COMPLETE <<<")
 
     def generateOtsuImages(self, fStart, fEnd):
         """
-        :param fStart: The number of first frame.
-        :param fEnd: The number of the last frame.
+        :param fStart: The number of first f.
+        :param fEnd: The number of the last f.
 
         Generates and saves the images that show Otsu's thresholding.
         """
-        print("### STARTING OTSU IMAGE GENERATION ###")
+        print(">>> PRE-RENDERING OTSU IMAGES STARTING <<<")
 
-        for frame in range(fStart, fEnd):
-            img = self.imageHandler.readFrame(frame, "raw")
+        for f in range(fStart, fEnd+1):
+            print("Otsu rendering progress: %d/%d frames" % (f, fEnd))
+            img = self.imageHandler.readFrame(f, "raw")
             args = (img, 127, 255, cv2.THRESH_BINARY)
             _, thresh = self.imageFilter.computeOtsuAlgorithm(*args)
-            self.imageHandler.writeImage(frame, "otsu", thresh)
+            self.imageHandler.writeImage(f, "otsu", thresh)
 
-        print("### COMPLETED OTSU IMAGE GENERATION ###")
+        print(">>> PRE-RENDERING OTSU IMAGES COMPLETE <<<")
 
 
 class ImageFilter:
@@ -343,16 +351,15 @@ class ImageFilter:
         downSize = (256, 256)
         threshold = 25
         dilationIter = 10
-        contourMinArea = 100   # worm ~ 200 x 10 pixels^2
 
-
+        # worm ~200x10 pixels^2
+        contourMinArea = 1000
 
         img = img1.copy()
 
-
         # Downsize images
-        img1 = cv2.resize(img1, downSize, img1)
-        img2 = cv2.resize(img2, downSize, img2)
+        #img1 = cv2.resize(img1, downSize, img1)
+        #img2 = cv2.resize(img2, downSize, img2)
 
         # Computes the absolute difference
         diff = cv2.absdiff(img1, img2)
@@ -363,26 +370,22 @@ class ImageFilter:
 
         # Dilates image to fill gaps and finding all contours
         dillation = cv2.dilate(thresh, None, iterations=dilationIter)
-        contours = cv2.findContours(dillation.copy(),
-                                         cv2.RETR_EXTERNAL,
+        _, contours, _ = cv2.findContours(dillation.copy(),
+                                         cv2.RETR_TREE,
                                          cv2.CHAIN_APPROX_SIMPLE)
 
-
-        img = cv2.cvtColor(diff, cv2.COLOR_GRAY2BGR)
-
-
+        #cv2.drawContours(img, contours, -1, (0,255,0), 3)
 
         # Extracting only sufficiently large contours and drawing a
         # rectangle around them
         for c in contours:
-            break
             if cv2.contourArea(c) < contourMinArea:
                 continue
 
             (x, y, w, h) = cv2.boundingRect(c)
             #print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
             #print("Contours Area: %d " % cv2.contourArea(c))
-            cv2.rectangle(img, (x, y), (x+w, y+h), (170, 0, 0), 2)
+            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 170), 2)
 
 
         return img
@@ -497,14 +500,21 @@ if __name__ == "__main__":
     param = \
     {
         "fStart":           1,
-        "fEnd":             300,
-        "fInterval":        40,   # milliseconds
+        "fEnd":             50,
+        "fInterval":        1000,   # milliseconds
         "fDiff":            20,
-        "fSpeedFactor":     20,
+        "fSpeedFactor":     1,
         "dataDate":         "2016_06_15",
         "cameraNum":        "1",
     }
 
-    # Run
+    # Pre-render animation
+    imageHandler = ImageHandler(param["dataDate"], param["cameraNum"])
+    preRenderer = AnimationPreRenderer(imageHandler)
+    #preRenderer.generateWormTrackingImages(param["fStart"],
+    #                                       param["fEnd"],
+    #                                       param["fDiff"])
+
+    # Display animation
     imageController = ImageController(param)
     imageController.runAnimation()

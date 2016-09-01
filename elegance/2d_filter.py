@@ -14,6 +14,7 @@
 import os
 import sys
 import time
+import math
 
 import cv2
 import numpy as np
@@ -90,14 +91,14 @@ class ImageDisplay(QtGui.QWidget):
 
     def __init__(self, fStart, fEnd, fInterval, fSpeedFactor, imageHandler):
         """
+        Initializes the GUI.
+
         :param fStart: The number of first frame of the animation.
         :param fEnd: The number of the last frame of the animation.
         :param fInterval: The delay in milliseconds between adjacent frames.
         :param fSpeedFactor: Integer times the speed of the animation
         :param imageHandler: An instantiated ImageHandler object that is
         responsible for reading and writing to the correct directories.
-
-        Initializes the GUI.
         """
         # Initialize super class and instance variables
         super(self.__class__, self).__init__()
@@ -154,9 +155,9 @@ class ImageDisplay(QtGui.QWidget):
         self.roiDock.setContentsMargins(0, 0, 0, 0)
 
         # Place the docks appropriately into the docking area
-        self.dockArea.addDock(self.rawDock, "top")
+        #self.dockArea.addDock(self.rawDock, "top")
         self.dockArea.addDock(self.heatDock, "bottom")
-        self.dockArea.addDock(self.roiDock, "right", self.heatDock)
+        #self.dockArea.addDock(self.roiDock, "right", self.heatDock)
 
     def initializeRawView(self):
         """
@@ -178,12 +179,12 @@ class ImageDisplay(QtGui.QWidget):
 
     def initializeTimer(self, fStart, fEnd, fInterval, fSpeedFactor):
         """
+        Initializes the timer responsible for tracking animation timing.
+
         :param fStart: The number of first frame of the animation.
         :param fEnd: The number of the last frame of the animation.
         :param fInterval: The delay in milliseconds between adjacent frames.
         :param fSpeedFactor: Integer times the speed of the animation
-
-        Initializes the timer responsible for tracking animation timing.
         """
         duration = fSpeedFactor * fInterval * (fEnd - fStart)
         self.animationTimer = QtCore.QTimeLine()
@@ -210,8 +211,9 @@ class ImageDisplay(QtGui.QWidget):
         #                           autoHistogramRange=False)
 
         # Update tracking animation
-        track = self.imageHandler.readFrame(frame, "track")
+        track = self.imageHandler.readFrame(frame, "heat")
         self.heatImageView.setImage(track,
+                                    autoLevels=False,
                                     autoRange=False,
                                     autoHistogramRange=False)
 
@@ -246,13 +248,89 @@ class AnimationPreRenderer:
         self.imageHandler = imageHandler
         self.imageFilter = ImageFilter()
 
+    def generateTestTrackImages(self, fStart, fEnd):
+        """
+        Generates some mock track images to test tracking algorithms on. The
+        images generated is essentially a sequence of white images where a
+        black circle is following a circular trajectory.
+
+        :param fStart: The number of first frame.
+        :param fEnd: The number of the last frame.
+        """
+        print(">>> PRE-RENDERING TRACK TEST IMAGES STARTING <<<")
+
+        # Creating a blank white image
+        imgSize = (height, width) = (2048, 2048)
+        blank = np.zeros(imgSize, dtype="uint16")
+        blank = cv2.bitwise_not(blank)  # Making image white
+
+        # Initializing the moving circle
+        movRadius = 100
+        movColour = (0, 150, 0)
+        isMovFill = -1     # Negative numbers imply filling
+
+        # Initializing the circular trajectory
+        trajAngle = 0
+        trajRadius = height / 3     # Hoping that height == width
+        trajOrigin = (width / 2, height / 2)
+
+        numRevolutions = 2
+        totalMoves = (2 * math.pi * trajRadius) * numRevolutions
+        movePerStep = totalMoves / (fEnd - fStart)
+        anglePerStep = (movePerStep / trajRadius)
+
+        for f, step in enumerate(range(fStart, fEnd+1), start=1):
+            print("Test track images rendering progress: %d/%d frames"
+                  % (f, fEnd))
+            img = blank.copy()
+
+            trajAngle += anglePerStep
+            movX = trajRadius * math.cos(trajAngle) + trajOrigin[0]
+            movY = trajRadius * math.sin(trajAngle) + trajOrigin[1]
+            cv2.circle(img, (int(movX), int(movY)),
+                       movRadius, movColour, isMovFill)
+
+            self.imageHandler.writeImage(f, "track", img)
+
+        print(">>> PRE-RENDERING TRACK TEST IMAGES COMPLETE <<<")
+
+    #TODO: WORKING ! !
+    # 1. The white background slowly fades to darkness due to summation of
+    # small evils
+    # 2. Wierd colour adding/changing on the moving black circle
+    def generateHeatImages(self, fStart, fEnd):
+        """
+        Builds a heat map of the worm locomotion activity via averaging out a
+        sequence of images produced by the worm tracking algorithm.
+
+        :param fStart: The number of first frame.
+        :param fEnd: The number of the last frame.
+        """
+        print(">>> PRE-RENDERING HEAT MAP IMAGES STARTING <<<")
+
+        # Initializing heat map
+        img = self.imageHandler.readFrame(1, "track")
+        height, width, _ = img.shape
+        heat = np.zeros((height, width), dtype="uint8")
+
+        for f in range(fStart, fEnd+1):
+            print("Heat map rendering progress: %d/%d frames" % (f, fEnd))
+            img = self.imageHandler.readFrame(f, "track")
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            heat += cv2.add(img, heat)
+            print(heat)
+
+            self.imageHandler.writeImage(f, "heat", heat)
+
+        print(">>> PRE-RENDERING HEAT MAP IMAGES COMPLETE <<<")
+
     def generateWormTrackingImages(self, fStart, fEnd, fDiff):
         """
+        Generates and saves the images that show worm tracking algorithm.
+
         :param fStart: The number of first frame.
         :param fEnd: The number of the last frame.
         :param fDiff: The difference range between two consecutive frames.
-
-        Generates and saves the images that show worm tracking algorithm.
         """
         print(">>> PRE-RENDERING WORM TRACKING IMAGES STARTING <<<")
 
@@ -267,12 +345,13 @@ class AnimationPreRenderer:
 
     def generateDifferenceImages(self, fStart, fEnd, fDiff):
         """
+        Generates and saves the images that show the absolute difference
+        between consecutive images.
+
         :param fStart: The number of first frame.
         :param fEnd: The number of the last frame.
         :param fDiff: The difference range between two consecutive frames.
 
-        Generates and saves the images that show the absolute difference
-        between consecutive images.
         """
         print(">>> PRE-RENDERING DIFFERENCE IMAGES STARTING <<<")
 
@@ -287,10 +366,10 @@ class AnimationPreRenderer:
 
     def generateOtsuImages(self, fStart, fEnd):
         """
+        Generates and saves the images that show Otsu's thresholding.
+
         :param fStart: The number of first f.
         :param fEnd: The number of the last f.
-
-        Generates and saves the images that show Otsu's thresholding.
         """
         print(">>> PRE-RENDERING OTSU IMAGES STARTING <<<")
 
@@ -336,26 +415,45 @@ class ImageFilter:
         """
         return cv2.absdiff(img1, img2)
 
-    #TODO: Complete worm tracking algorithm
     def computeWormTrackingAlgorithm(self, img1, img2):
         """
-        Blurs two images, takes their absolute difference, applies a local
-        gaussian threshold, then attempts to find contours of the worm and
-        draws a rectangle around it.
+        By using various image analysis techniques, attempts to image track
+        the worm for the first image in the given images.
 
-        :param fOne: Integer number of the first frame.
-        :param fDiff: How many frames ahead the next image is.
-        :return: The difference of two images in OpenCV format.
+        :param img1: The first worm image.
+        :param img2: The second worm image to be differenced from.
+        """
+        estimateData = self.estimateWormPosition(img1, img2)
+        return estimateData["image"]
+
+    #TODO: Improve worm tracking algorithm so that it memorizes worm location
+    def estimateWormPosition(self, img1, img2):
+        """
+        Estimates the worm position on a 2D image and bounds it by a circle.
+
+        This is done via down sizing two images using linear interpolation,
+        taking their absolute difference, thresholding to remove background
+        noise, dillating the resultant image to connect worm segments, then
+        finding the contours of the worm.
+
+        :param img1: The first worm image.
+        :param img2: The second worm image to be differenced from.
+        :return: A dictionary containing the image with the worm bounded,
+        the radius of the circle, and the center of the circle.
         """
         # Magic Parameters
-        downSize = (256, 256)
+        radiusError = 1
+        sizeFactor = 10
         threshold = 25
         dilationIter = 10
+        contourMinArea = 1000       # worm ~200x10 pixels^2
+        height, width, _ = img1.shape
+        downSize = (height/sizeFactor, width/sizeFactor)
 
-        # worm ~200x10 pixels^2
-        contourMinArea = 1000
-
-        img = img1.copy()
+        # Initializing a blank image
+        blank = np.zeros(img1.shape, dtype=img1.dtype)
+        blank = cv2.bitwise_not(blank, blank)
+        cv2.circle(blank, (height/2, width/2), (height/2), (255, 0, 0), 2)
 
         # Downsize images
         #img1 = cv2.resize(img1, downSize, img1)
@@ -365,30 +463,42 @@ class ImageFilter:
         diff = cv2.absdiff(img1, img2)
         diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
 
-        # Applies global thresholding to binary
+        # Applies global threshold and converts to binary
         _, thresh = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)
 
-        # Dilates image to fill gaps and finding all contours
+        # Dilates image to fill all worm gaps and finds all contours
         dillation = cv2.dilate(thresh, None, iterations=dilationIter)
-        _, contours, _ = cv2.findContours(dillation.copy(),
+        _, contours, _ = cv2.findContours(dillation,
                                          cv2.RETR_TREE,
                                          cv2.CHAIN_APPROX_SIMPLE)
 
-        #cv2.drawContours(img, contours, -1, (0,255,0), 3)
+        radius = 0
+        center = 0
 
-        # Extracting only sufficiently large contours and drawing a
-        # rectangle around them
+        # Bounding only sufficiently large contours by a circle
         for c in contours:
-            if cv2.contourArea(c) < contourMinArea:
+            break
+            if cv2.contourArea(c) < contourMinArea / sizeFactor**2:
+                print("Contour Area Ignored: %d " % cv2.contourArea(c))
                 continue
 
-            (x, y, w, h) = cv2.boundingRect(c)
-            #print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
-            #print("Contours Area: %d " % cv2.contourArea(c))
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 170), 2)
+            # Rescaling circle parameters to map onto original image
+            (x, y), radius = cv2.minEnclosingCircle(c)
+            center = (int(x * sizeFactor), int(y * sizeFactor))
+            radius = int(radius * sizeFactor/2 * radiusError)
+            #cv2.circle(blank, center, radius, (0, 0, 100), -1)
+
+        cv2.drawContours(blank, contours, -1, (0, 0, 100))
 
 
-        return img
+        estimateData = \
+            {
+                "image":    blank,
+                "radius":   radius,
+                "center":   center
+            }
+
+        return estimateData
 
     def _updatePerformanceMeasuring(self):
         """
@@ -418,6 +528,8 @@ class ImageHandler:
     """
     Responsible for handling image reading and writing.
     """
+
+    availableTypes = ["raw", "otsu", "difference", "track", "heat"]
 
     def __init__(self, dataDate, cameraNum):
         """
@@ -460,7 +572,7 @@ class ImageHandler:
         given frame number.
 
         :param fNum: The frame number to be read.
-        :param fType: The choices can be from ["raw", "difference", "heat"].
+        :param fType: The choices are in the class variable availabeTypes
         :param image: The image to be saved.
         :param args: Any args that can thrown to OpenCV image write.
         """
@@ -475,7 +587,7 @@ class ImageHandler:
         for given type of frame. This requires a specific folder structure to
         work correctly.
 
-        :param fType: A choice of ("raw", "heat", "difference")
+        :param fType: The choices are in the class variable availabeTypes
         :return: A string of the absolute path to a worm image.
         """
         path = ["..", "..", "assets", "images", self.date, self.camera, fType]
@@ -483,8 +595,7 @@ class ImageHandler:
         absPath = os.path.abspath(relPath)
 
         # Attempts to create missing directories
-        availableTypes = ["raw", "otsu", "difference", "track", "heat"]
-        if not os.path.exists(absPath) and fType in availableTypes:
+        if not os.path.exists(absPath) and fType in ImageHandler.availableTypes:
             os.makedirs(absPath)
 
         if os.path.exists(absPath):
@@ -500,20 +611,23 @@ if __name__ == "__main__":
     param = \
     {
         "fStart":           1,
-        "fEnd":             50,
-        "fInterval":        1000,   # milliseconds
+        "fEnd":             1000,
+        "fInterval":        100,   # milliseconds
         "fDiff":            20,
         "fSpeedFactor":     1,
-        "dataDate":         "2016_06_15",
+        "dataDate":         "9999_99_99",   #"2016_06_15",
         "cameraNum":        "1",
     }
 
     # Pre-render animation
     imageHandler = ImageHandler(param["dataDate"], param["cameraNum"])
-    preRenderer = AnimationPreRenderer(imageHandler)
+    #preRenderer = AnimationPreRenderer(imageHandler)
     #preRenderer.generateWormTrackingImages(param["fStart"],
     #                                       param["fEnd"],
     #                                       param["fDiff"])
+    #preRenderer.generateTestTrackImages(1, 1000)
+    #preRenderer.generateHeatImages(param["fStart"], param["fEnd"])
+
 
     # Display animation
     imageController = ImageController(param)

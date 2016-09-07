@@ -25,5 +25,5 @@ unfortunately halted since it was no longer needed.
 ## Authors
 Supervisors: Dr. Netta Cohen, Dr. Thomas Ranner, Dr. Robert Holbrook
 
-Name: Othman Alikhan
+Name: Othman Alikhan  
 Email: oz.alikhan@gmail.com

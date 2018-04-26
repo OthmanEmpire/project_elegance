@@ -20,8 +20,7 @@ import pyqtgraph.examples
 #pyqtgraph.examples.run()
 
 from data import ImageHandler
-from prerender import AnimationPreRenderer
-from filter import ImageFilter
+from filter import ImageFilter, AnimationPreRenderer
 from gui import ImageDisplay
 
 

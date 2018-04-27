@@ -7,6 +7,11 @@ import cv2
 import time
 
 
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GRAY = (127, 127, 127)
+
+
 class ImageFilter:
     """
     Responsible for applying filtering algorithms on the images.
@@ -39,57 +44,46 @@ class ImageFilter:
         """
         return cv2.absdiff(img1, img2)
 
-    #TODO: Complete worm tracking algorithm
-    def computeWormTrackingAlgorithm(self, img1, img2):
+    def computeWormTrackingAlgorithm(self, img):
         """
-        Blurs two images, takes their absolute difference, applies a local
-        gaussian threshold, then attempts to find contours of the worm and
-        draws a rectangle around it.
+        Converts the image to grayscale, applies a binary threshold, dilates
+        the image, then finds contours. Afterwards, draws contours with
+        sufficient area size onto the image.
 
-        :param fOne: Integer number of the first frame.
-        :param fDiff: How many frames ahead the next image is.
-        :return: The difference of two images in OpenCV format.
+        :param img: An image.
+        :return: An image resulting from applying the algorithm on the input.
         """
         # Magic Parameters
-        downSize = (256, 256)
-        threshold = 25
-        dilationIter = 10
+        dilationIter = 3
 
-        # worm ~200x10 pixels^2
-        contourMinArea = 1000
+        # worm ~150x15 = 2250 pixels^2
+        contourMinArea = 500
+        contourMaxArea = 3000
 
-        img = img1.copy()
-
-        # Downsize images
-        #img1 = cv2.resize(img1, downSize, img1)
-        #img2 = cv2.resize(img2, downSize, img2)
-
-        # Computes the absolute difference
-        diff = cv2.absdiff(img1, img2)
-        diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+        # Converts the image to grayscale
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # Applies global thresholding to binary
-        _, thresh = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(img, 30, 255, cv2.THRESH_BINARY)
 
-        # Dilates image to fill gaps and finding all contours
-        dillation = cv2.dilate(thresh, None, iterations=dilationIter)
-        _, contours, _ = cv2.findContours(dillation.copy(),
-                                         cv2.RETR_TREE,
-                                         cv2.CHAIN_APPROX_SIMPLE)
+        # Erodes the image to improve quality of contours
+        # Note: Erodes instead of Dilate because binary image is 'reversed'
+        erode = cv2.erode(thresh, None, iterations=dilationIter)
+        _, contours, _ = cv2.findContours(erode,
+                                          cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_NONE)
 
-        #cv2.drawContours(img, contours, -1, (0,255,0), 3)
+        # Draws all contours
+        # track = cv2.drawContours(img, contours, -1, GRAY)
 
         # Extracting only sufficiently large contours and drawing a
-        # rectangle around them
+        # rectangle around them (idea is to track the worm)
         for c in contours:
-            if cv2.contourArea(c) < contourMinArea:
-                continue
-
-            (x, y, w, h) = cv2.boundingRect(c)
-            #print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
-            #print("Contours Area: %d " % cv2.contourArea(c))
-            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 170), 2)
-
+            if contourMaxArea > cv2.contourArea(c) > contourMinArea:
+                (x, y, w, h) = cv2.boundingRect(c)
+                cv2.rectangle(img, (x, y), (x+w, y+h), WHITE, 2)
+                # print("Contours Rectangle at: (%d %d) (%d %d)" % (x, y, w, h))
+                # print("Contours Area: %d " % cv2.contourArea(c))
 
         return img
 
@@ -147,7 +141,7 @@ class AnimationPreRenderer:
             print("Worm tracking rendering progress: %d/%d frames" % (f, fEnd))
             img1 = self.imageHandler.readFrame(f, "raw")
             img2 = self.imageHandler.readFrame(f + fDiff, "raw")
-            track = self.imageFilter.computeWormTrackingAlgorithm(img1, img2)
+            track = self.imageFilter.computeWormTrackingAlgorithm(img1)
             self.imageHandler.writeImage(f, "track", track)
 
         print(">>> PRE-RENDERING WORM TRACKING IMAGES COMPLETE <<<")

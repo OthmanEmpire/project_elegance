@@ -8,17 +8,10 @@
 # __date__ = "2016-07-15"                                                     #
 ###############################################################################
 """
-import os
+
+
 import sys
-import time
-
-import cv2
-import pyqtgraph as pg
-from pyqtgraph import QtCore, QtGui, dockarea
-
-import pyqtgraph.examples
-#pyqtgraph.examples.run()
-
+from pyqtgraph import QtGui
 from data import ImageHandler
 from filter import ImageFilter, AnimationPreRenderer
 from gui import ImageDisplay
@@ -86,15 +79,15 @@ if __name__ == "__main__":
     param = \
     {
         "fStart":           1,
-        "fEnd":             100,
-        "fInterval":        500,   # milliseconds
+        "fEnd":             400,
+        "fInterval":        100,   # milliseconds
         "fDiff":            1,
         "fSpeedFactor":     1,
         "dataDate":         "2016_06_15",
         "cameraNum":        "1",
     }
 
-    # Pre-render animation (generating images to be graphed in advance)
+    # Pre-render images for individual algorithms
     # imageHandler = ImageHandler(param["dataDate"], param["cameraNum"])
     # preRenderer = AnimationPreRenderer(imageHandler)
     # preRenderer.generateWormTrackingImages(param["fStart"],

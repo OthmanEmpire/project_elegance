@@ -128,10 +128,9 @@ class ImageDisplay(QtGui.QWidget):
 
         # Update raw animation
         raw = self.imageHandler.readFrame(frame, "raw")
-        # raw = cv2.resize(raw, (512, 512), raw)
         self.rawImageView.setImage(raw,
                                    autoRange=False,
-                                   autoLevels=False,
+                                   # autoLevels=False,
                                    autoHistogramRange=False)
 
         # Update tracking animation

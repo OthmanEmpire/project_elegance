@@ -4,7 +4,7 @@ the behaviour of the worm (Caenorhabditis Elegans) in real-time. The particular
 focus is developing an algorithm that can track the worm as it moves in a
 three-dimensional environment.
 
-Project Elgance was one of my summer internship projects and was halted due to
+Project Elegance was one of my summer internship projects and was halted due to
 a shift in business needs so the algorithm remains incomplete.
 
 ![](data/video/tracker.gif)

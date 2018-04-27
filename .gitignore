@@ -70,9 +70,5 @@ target/
 *.swp
 *.*~
 
-# Assets
-/assets
-/venv
-
 # Pycharm
 .idea/

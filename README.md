@@ -24,12 +24,12 @@ shift in business needs so the algorithm remains incomplete.
 
 
 ## Authors
-Author: Othman Alikhan, oz.alikhan@gmail.com
-Supervisors: Dr. Netta Cohen, Dr. Thomas Ranner, Dr. Robert Holbrook
+* Author: Othman Alikhan, oz.alikhan@gmail.com
+* Supervisors: Dr. Netta Cohen, Dr. Thomas Ranner, Dr. Robert Holbrook
 
 
 ## Credits
-1. C. elegans movie (input data):
+1. Input data (C. elegans movie):
     Movie S1 from Kwon N, Pyo J, Lee S, Je J (2013). "3-D Worm Tracker for
     Freely Moving C. elegans". PLOS ONE. DOI:10.1371/journal.pone.0057484.
     PMID 23437394.

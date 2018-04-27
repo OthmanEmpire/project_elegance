@@ -1,29 +1,35 @@
-## Elegance--Computer Vision with C. Elegans
+## Project Elegance: Computer Vision with C. Elegans
+The aim of this project is to build some tools that would assist in analysing
+the behaviour of the worm (Caenorhabditis Elegans) in real-time. The particular
+focus is developing an algorithm that can track the worm as it moves in a
+three-dimensional environment.
 
-The project "Elegance" aims to visualize some behavioural data of the worm
-(Caenorhabditis Elegans). Namely, the project was aimed to track the worm in
-a series of images and draw two heat maps: a heat map of it's the time
-duration per location and a heat map of how many visits for a given location.
+Project Elgance was one of my summer internship projects and was halted due to a
+shift in business needs so the algorithm remains incomplete.
 
-Project "Elegance" was one of the projects in a summer internship and was
-unfortunately halted since it was no longer needed.
+![](data/video/tracker.gif)
 
 
 ## Key Features
-* Tracking of the worm using several image filtering techniques
-* Pre-rendering of 2D tracked images
-* Animation of the series of 2D images using pyqtgraph
-* Generation of test images to apply tracking algorithms on
+* Implementation of several image filtering algorithms to track the worm.
+* Capability of pre-rendering the 2D images for each tracking algorithm.
+* Playing the 2D images as an animation using pyqtgraph.
+* Ability to generate test images to study the tracking algorithms.
 
 
-## Requirements
-* Python 2.6
-* OpenCV 3.1.0
-* pyqtgraph  0.9.10
+## Requirements (see requirements.txt)
+* Python 3+
+  * OpenCV 3.1.0
+  * pyqtgraph  0.9.10
 
 
 ## Authors
+Author: Othman Alikhan, oz.alikhan@gmail.com
 Supervisors: Dr. Netta Cohen, Dr. Thomas Ranner, Dr. Robert Holbrook
 
-Name: Othman Alikhan  
-Email: oz.alikhan@gmail.com
+
+## Credits
+1. C. elegans movie (input data):
+    Movie S1 from Kwon N, Pyo J, Lee S, Je J (2013). "3-D Worm Tracker for
+    Freely Moving C. elegans". PLOS ONE. DOI:10.1371/journal.pone.0057484.
+    PMID 23437394.

@@ -1,0 +1,2 @@
+pyqtgraph==0.10.0
+opencv=3.3.1

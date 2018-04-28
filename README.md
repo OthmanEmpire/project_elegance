@@ -4,6 +4,11 @@ the behaviour of the worm (Caenorhabditis Elegans) in real-time. The particular
 focus is developing an algorithm that can track the worm as it moves in a
 three-dimensional environment.
 
+The animation below is split into three parts: The top part is the raw video,
+the bottom left is the difference between successive video frames, and the 
+bottom right is the tracking algorithm applied on the video (notice the 
+white squares).
+
 Project Elegance was one of my summer internship projects and was halted due to
 a shift in business needs so the algorithm remains incomplete.
 
